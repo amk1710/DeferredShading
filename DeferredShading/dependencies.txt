@@ -1,0 +1,10 @@
+GLM(Open GL Mathematics Library) is used as per the MIT license. https://glm.g-truc.net/0.9.9/index.html
+
+-Glad: https://glad.dav1d.de/
+	
+	- GLFW: under the zlib/libpng license. https://www.glfw.org/
+	
+	
+	- Stb image: On public domain. https://github.com/nothings/stb
+	
+	- Tiny Obj Loader: under the MIT license. https://github.com/syoyo/tinyobjloader

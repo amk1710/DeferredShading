@@ -10,14 +10,10 @@ int main()
 	
 	
 	//wm.LoadModel("golfball/golfball.obj", false);
+	wm.LoadModel("stones/stones.obj", false);
 	//wm.LoadBumpmap("golfball/golfball.png");
 	//wm.LoadTexture("golfball/golfball.png");
-
-	wm.LoadModel2("stones/stones.obj", false);
-	//wm.LoadModel2("golfball/golfball.obj", false);
-	//wm.LoadBumpmap("stones/stones_norm.jpg");
-	//wm.LoadTexture("stones/stones.jpg");
-		
+	
 	wm.InitializeSceneInfo();
 	wm.StartRenderLoop();
 }

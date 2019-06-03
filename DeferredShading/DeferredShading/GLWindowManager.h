@@ -20,8 +20,11 @@ private:
 	unsigned int VAO;
 	unsigned int VBO;
 	unsigned int EBO;
-	unsigned int shaderProgram;
 	unsigned int colorBuffer;
+
+	unsigned int screenWidth = 800;
+	unsigned int screenHeight = 600;
+
 
 
 	tinyobj::attrib_t attrib;
@@ -65,6 +68,21 @@ private:
 	std::string GLWindowManager::readShaderFile(const char* name);
 	void GLWindowManager::UpdateMVPMatrix();
 	unsigned int GLWindowManager::loadTexture(char const * path);
+	void GLWindowManager::FBO_2_file();
+	void GLWindowManager::renderQuad();
+	void GLWindowManager::BuildShader(const char* filepath, unsigned int* shaderID, int shader_enum);
+
+
+	//NEW STUFF
+	//gBuffer framebuffer stuff
+	unsigned int gPass;
+	unsigned int gBuffer;
+	unsigned int gPosition, gNormal, gColorSpec;
+
+	unsigned int lPass;
+
+	unsigned int quadVAO = 0;
+	unsigned int quadVBO;
 	
 	
 
@@ -73,7 +91,6 @@ public:
 	~GLWindowManager();
 	void InitializeSceneInfo();
 	void GLWindowManager::LoadModel(const char* objName, bool randomColors);
-	void GLWindowManager::LoadModel2(const char* objName, bool randomColors);
 	void GLWindowManager::LoadTexture(const char* filepath);
 	void GLWindowManager::LoadBumpmap(const char* filepath);
 	void GLWindowManager::StartRenderLoop();

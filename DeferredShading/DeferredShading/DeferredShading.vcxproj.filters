@@ -24,17 +24,29 @@
     <ClCompile Include="GLWindowManager.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="lodepng.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GLWindowManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="lodepng.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="fragment.frag">
+    <None Include="Gvertex.vert">
       <Filter>Source Files</Filter>
     </None>
-    <None Include="vertex.vert">
+    <None Include="Gfragment.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Lfragment.frag">
+      <Filter>Source Files</Filter>
+    </None>
+    <None Include="Lvertex.vert">
       <Filter>Source Files</Filter>
     </None>
   </ItemGroup>

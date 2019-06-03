@@ -13,6 +13,8 @@
 #include <time.h>
 #include <unordered_map>
 
+#include "lodepng.h"
+
 
 #define TINYOBJLOADER_IMPLEMENTATION
 //#include <tiny_obj_loader.h>
@@ -25,6 +27,32 @@
 
 
 using namespace std;
+
+void GLWindowManager::FBO_2_file()
+{
+	FILE    *output_image;
+	int     output_width, output_height;
+
+	output_width = screenWidth;
+	output_height = screenHeight;
+
+	/// READ THE PIXELS VALUES from FBO AND SAVE TO A FILE
+	int             i, j, k;
+	unsigned char   *pixels = (unsigned char*)malloc(output_width*output_height * 4);
+
+	/// READ THE CONTENT FROM THE FBO
+	//glPixelStorei(GL_PACK_ALIGNMENT, 1); ??
+	glReadBuffer(GL_FRONT);
+	glReadPixels(0, 0, output_width, output_height, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+
+	//Encode the image
+	unsigned error = lodepng::encode("output.png", pixels, width, height);
+
+	//if there's an error, display it
+	if (error) std::cout << "encoder error " << error << ": " << lodepng_error_text(error) << std::endl;
+
+	free(pixels);
+}
 
 //one callback definition(could not put it inside the class for some reason)
 static void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -113,6 +141,12 @@ void GLWindowManager::processInput(GLFWwindow *window)
 		angle -= 0.001f;
 	}
 
+	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+	{
+		cout << "Outputting fbo" << endl;
+		FBO_2_file();
+	}
+
 
 }
 
@@ -136,6 +170,29 @@ std::string GLWindowManager::readShaderFile(const char* name)
 	shader += '\0';
 	in.close();
 	return shader;
+}
+
+void GLWindowManager::BuildShader(const char* filepath, unsigned int* shaderID, int shader_enum)
+{
+	std::string shaderString = readShaderFile(filepath);
+
+	//cria objeto shader
+	*shaderID = glCreateShader(shader_enum);
+	//attach shader source code to the shader object and compile the shader
+	const char *c_str = shaderString.c_str(); // glShaderSource espera no 3o param um array de c-like strings. Nesse caso, só temos uma string nesse array. No 2o param está explícita esta informação
+	glShaderSource(*shaderID, 1, &c_str, NULL);
+	glCompileShader(*shaderID);
+
+	//checks for errors:
+	int success;
+	char infoLog[512];
+	glGetShaderiv(*shaderID, GL_COMPILE_STATUS, &success);
+	if (!success)
+	{
+		glGetShaderInfoLog(*shaderID, 512, NULL, infoLog);
+		std::cerr << "ERROR::SHADER::VERTEX/FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
+		exit(1);
+	}
 }
 
 	//updates model-view-projection matrix based on current values for the eye, scale etc.
@@ -184,178 +241,6 @@ GLWindowManager::~GLWindowManager()
 	
 }
 
-//reference: https://vulkan-tutorial.com/Loading_models
-void GLWindowManager::LoadModel(const char* objName, bool randomColors = false)
-{
-	std::string warn, err;
-	
-	srand(17);	
-	if (!tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, objName)) {
-		cout << warn + err << endl;
-		throw std::runtime_error(warn + err);
-	}
-
-	// o tiny obj loader já garante que todas as faces são triângulos. Dado isso, para obter os vértices, 
-	// somente precisamos iterar sobre os vertices e botá-los no vetor
-	//assumimos que os vértices são únicos
-	//supomos que só tem uma mesh definida no arquivo. Se tiver mais de uma, renderizamos só a primeira
-	indices.clear();
-	for (const auto& index : shapes[0].mesh.indices)
-	{
-		indices.push_back(index.vertex_index);
-	}
-
-	std::vector<glm::vec3> tangents;
-	std::vector<glm::vec3> bitangents;
-	std::vector<int> number_of_faces;
-
-	tangents.resize(attrib.vertices.size() / 3);
-	bitangents.resize(attrib.vertices.size() / 3);
-	number_of_faces.resize(attrib.vertices.size() / 3);
-
-	cout << shapes[0].mesh.indices.size() << endl;
-
-
-	//calcula, para cada triângulo, a tangente e a bitangente
-	//ps: += tres para ir percorrendo a cada três vértices, ou seja, um triângulo. É certo que vértices serão percorridos mais de uma vez, porém conto com o resultado não ser discrepante o suficiente para impactar
-	for (int i = 0; i < shapes[0].mesh.indices.size(); i += 3)
-	{
-		//adaptado de: http://www.opengl-tutorial.org/intermediate-tutorials/tutorial-13-normal-mapping/
-
-		//cout << "triangle:" << i << endl;
-
-		// Shortcuts for vertices
-		glm::vec3 v0 = glm::vec3(attrib.vertices[indices[i]], attrib.vertices[indices[i] + 1], attrib.vertices[indices[i] + 2]);
-		glm::vec3 v1 = glm::vec3(attrib.vertices[indices[i + 1]], attrib.vertices[indices[i + 1] + 1], attrib.vertices[indices[i + 1] + 2]);
-		glm::vec3 v2 = glm::vec3(attrib.vertices[indices[i + 2]], attrib.vertices[indices[i + 2] + 1], attrib.vertices[indices[i + 2] + 2]);
-
-		/*cout << "v1:" << v0.x << v0.y << v0.z << endl;
-		cout << "v2:" << v1.x << v1.y << v1.z << endl;
-		cout << "v3:" << v2.x << v2.y << v2.z << endl;
-		*/
-
-		// Shortcuts for UVs
-		glm::vec2 uv0 = glm::vec2(attrib.texcoords[indices[i]], attrib.texcoords[indices[i] + 1]);
-		glm::vec2 uv1 = glm::vec2(attrib.texcoords[indices[i + 1]], attrib.texcoords[indices[i + 1] + 1]);
-		glm::vec2 uv2 = glm::vec2(attrib.texcoords[indices[i + 2]], attrib.texcoords[indices[i + 2] + 1]);
-
-		//edges of the triangle: position delta
-		glm::vec3 deltaPos1 = v1 - v0;
-		glm::vec3 deltaPos2 = v2 - v0;
-
-		// UV delta
-		glm::vec2 deltaUV1 = uv1 - uv0;
-		glm::vec2 deltaUV2 = uv2 - uv0;
-
-		float r = 1.0f / (deltaUV1.x * deltaUV2.y - deltaUV1.y * deltaUV2.x);
-		glm::vec3 tangent = (deltaPos1 * deltaUV2.y - deltaPos2 * deltaUV1.y)*r;
-		glm::vec3 bitangent = (deltaPos2 * deltaUV1.x - deltaPos1 * deltaUV2.x)*r;
-		
-
-		//glm::vec3 normal = glm::vec3(attrib.normals[indices[i]])
-		////glm::vec3 tangent = glm::vec3(1.0f, 0.0f, 0.0f);
-		//glm::vec3 bitangent = glm::cross(tangent, );
-
-		
-		//adiciona valores para as médias de cada vertice
-		number_of_faces[indices[i]] += 1;
-		number_of_faces[indices[i+1]] += 1;
-		number_of_faces[indices[i+2]] += 1;
-
-		tangents[indices[i]] += tangent;
-		tangents[indices[i + 1]] += tangent;
-		tangents[indices[i + 2]] += tangent;
-
-		bitangents[indices[i]] += bitangent;
-		bitangents[indices[i + 1]] += bitangent;
-		bitangents[indices[i + 2]] += bitangent;
-
-	}
-
-	//para cada tangente e bitangente, tira a media e normaliza
-	for (int i = 0; i < number_of_faces.size(); i++)
-	{
-		//cout << "vertex: " << i << ", number of faces: " << number_of_faces[i] << endl;
-
-		tangents[i] = glm::vec3(tangents[i].x / number_of_faces[i], tangents[i].y / number_of_faces[i], tangents[i].z / number_of_faces[i]);
-		bitangents[i] = glm::vec3(bitangents[i].x / number_of_faces[i], bitangents[i].y / number_of_faces[i], bitangents[i].z / number_of_faces[i]);
-
-		glm::normalize(tangents[i]);
-		glm::normalize(bitangents[i]);
-
-	}
-	
-	//preenche vbo:
-	vertices.clear();
-	for (int i = 0; i < attrib.vertices.size() / 3; i++)
-	{
-		vertices.push_back(attrib.vertices[3*i]);
-		vertices.push_back(attrib.vertices[3*i+1]);
-		vertices.push_back(attrib.vertices[3*i+2]);
-
-		//colors
-		if (randomColors)
-		{
-			vertices.push_back((static_cast <float> (rand() / 2.0) / static_cast <float> (RAND_MAX)));
-			vertices.push_back((static_cast <float> (rand() / 2.0) / static_cast <float> (RAND_MAX)));
-			vertices.push_back((static_cast <float> (rand()) / static_cast <float> (RAND_MAX)));
-		}
-		else
-		{
-			vertices.push_back(attrib.colors[3 * i]);
-			vertices.push_back(attrib.colors[3 * i + 1]);
-			vertices.push_back(attrib.colors[3 * i + 2]);
-		}
-		
-		//normals
-		vertices.push_back(attrib.normals[3 * i]);
-		vertices.push_back(attrib.normals[3 * i + 1]);
-		vertices.push_back(attrib.normals[3 * i + 2]);
-
-		/*glm::vec3 normal = glm::cross(tangents[i], bitangents[i]);
-		vertices.push_back(normal.x);
-		vertices.push_back(normal.y);
-		vertices.push_back(normal.z);
-*/
-
-		//texture coordinates
-		if (attrib.texcoords.size() != 0)
-		{
-			vertices.push_back(attrib.texcoords[2 * i]);
-			vertices.push_back(attrib.texcoords[2 * i + 1]);
-		}
-		else
-		{
-			vertices.push_back(0.0f);
-			vertices.push_back(0.0f);
-		}
-
-		// bi/tangents, pre calculadas acima
-		vertices.push_back(tangents[i].x);
-		vertices.push_back(tangents[i].y);
-		vertices.push_back(tangents[i].z);
-
-		vertices.push_back(bitangents[i].x);
-		vertices.push_back(bitangents[i].y);
-		vertices.push_back(bitangents[i].z);
-
-
-
-	}
-	
-	
-	//tem mais coordenadas de textura do que vértices!
-
-	printf("# of vertices infos  = %d\n", (int)(vertices.size()));
-	printf("# of vertices  = %d\n", (int)(attrib.vertices.size()) / 3);
-	printf("# of normals   = %d\n", (int)(attrib.normals.size()) / 3);
-	printf("# of texcoords = %d\n", (int)(attrib.texcoords.size()) / 2);
-	printf("# of materials = %d\n", (int)materials.size());
-	printf("# of shapes    = %d\n", (int)shapes.size());
-
-}
-
-
 //pra usar a unordered map abaixo, precisamos implementar o == e uma função hash:
 struct Vertex {
 	glm::vec3 position;
@@ -384,7 +269,7 @@ namespace std {
 
 
 
-void GLWindowManager::LoadModel2(const char* objName, bool randomColors = false)
+void GLWindowManager::LoadModel(const char* objName, bool randomColors = false)
 {
 	std::string warn, err;
 
@@ -576,21 +461,6 @@ void GLWindowManager::InitializeSceneInfo()
 {
 	// reference: https://learnopengl.com/Getting-started/Hello-Window, https://learnopengl.com/Getting-started/Hello-Triangle
 
-	//open model
-	//LoadModel("stones/stones.obj", false);
-
-
-	//default values for eye, camera target and up. 
-	scale = 1.0f;
-	angle = 0.0f;
-	eye = glm::vec3(0.0f, 0.0f, 10.0f);
-	cameraTarget = glm::vec3(0.0, 0.0f, 0.0f);
-	up = glm::vec3(0.0f, 1.0f, 0.0f);	
-
-	//values for up to 4 lights
-	nLights = 1;
-	lights = { 0,3,4,    0,0,1,   0.5f,0.5f,1.5f};
-
 	//initialize opengl
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -598,7 +468,8 @@ void GLWindowManager::InitializeSceneInfo()
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
 	//create glfw window
-	window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+	
+	window = glfwCreateWindow(screenWidth, screenHeight, "LearnOpenGL", NULL, NULL);
 	if (window == NULL)
 	{
 		std::cout << "Failed to create GLFW window." << std::endl;
@@ -606,7 +477,8 @@ void GLWindowManager::InitializeSceneInfo()
 		exit(1);
 	}
 	glfwMakeContextCurrent(window);
-
+	
+	
 	//ask GLAD to get opengl function pointers for us
 	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
 	{
@@ -615,17 +487,95 @@ void GLWindowManager::InitializeSceneInfo()
 	}
 
 	//set viewport's size
-	glViewport(0, 0, 800, 600);
+	glViewport(0, 0, screenWidth, screenHeight);
 	//set window's resize callback
-	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback); //talvez seja melhor nem ter isso, já que não to atualizando direto as demais coisas(texturas do g pass etc)
+
+	//configure global opengl state
+	//enables depth testing
+	glEnable(GL_DEPTH_TEST);
+
+	// build and compile shaders ------------------
+
+	//shaders do G pass
+	unsigned int vertexShaderG;
+	BuildShader("Gvertex.vert", &vertexShaderG, GL_VERTEX_SHADER);
+	
+	unsigned int fragmentShaderG;
+	BuildShader("Gfragment.frag", &fragmentShaderG, GL_FRAGMENT_SHADER);
+
+	//shader do L pass
+	unsigned int vertexShaderL;
+	BuildShader("Lvertex.vert", &vertexShaderL, GL_VERTEX_SHADER);
+
+	unsigned int fragmentShaderL;
+	BuildShader("Lfragment.frag", &fragmentShaderL, GL_FRAGMENT_SHADER);
+
+	// SHADER PROGRAM G PASS
+	int success;
+	char infoLog[512];
+
+	gPass = glCreateProgram();
+	//attach shader to program
+	glAttachShader(gPass, vertexShaderG);
+	glAttachShader(gPass, fragmentShaderG);
+	glLinkProgram(gPass);
+
+	//check for linking errors:
+	glGetProgramiv(gPass, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(gPass, 512, NULL, infoLog);
+		std::cerr << "ERROR::SHADER::LINKING_ERROR\n" << infoLog << std::endl;
+	}
+	//glUseProgram(gPass);
+
+	// SHADER PROGRAM L PASS
+
+	lPass = glCreateProgram();
+	//attach shader to program
+	glAttachShader(lPass, vertexShaderL);
+	glAttachShader(lPass, fragmentShaderL);
+	glLinkProgram(lPass);
+
+	//check for linking errors:
+	glGetProgramiv(lPass, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(lPass, 512, NULL, infoLog);
+		std::cerr << "ERROR::SHADER::LINKING_ERROR\n" << infoLog << std::endl;
+	}
+	//glUseProgram(gPass);
+
+
+	//deleta os objetos shader, que já cumpriram sua função
+	glDeleteShader(vertexShaderG);
+	glDeleteShader(fragmentShaderG);
+	glDeleteShader(vertexShaderL);
+	glDeleteShader(fragmentShaderL);
+
+
+
+
+	// END: build and compile shaders
+
+	//LOAD MODELS
+
+	//default values for eye, camera target and up. 
+	scale = 1.0f;
+	angle = 0.0f;
+	eye = glm::vec3(0.0f, 0.0f, 10.0f);
+	cameraTarget = glm::vec3(0.0, 0.0f, 0.0f);
+	up = glm::vec3(0.0f, 1.0f, 0.0f);
+
+	//values for up to 4 lights
+	nLights = 1;
+	lights = { 0,3,4,    0,0,1,   0.5f,0.5f,1.5f };
+
+	//END: LOAD MODELS
 
 	////cria objeto VAO para guardar o que vai ser configurado abaixo:
 	glGenVertexArrays(1, &VAO);
 	//bind VAO
 	glBindVertexArray(VAO);
-
-	//enables depth testing
-	glEnable(GL_DEPTH_TEST);
 
 	//cria buffer object:
 	//vertex buffer object: 
@@ -644,110 +594,55 @@ void GLWindowManager::InitializeSceneInfo()
 	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(indices[0]), static_cast<void*>(indices.data()), GL_STATIC_DRAW);
 
 
-	//COMO PASSAR DUAS TEXTURAS AO SHADER?
+	//reference: https://learnopengl.com/Advanced-Lighting/Deferred-Shading
+	//cria gBuffer framebuffer object, usado para a primeira passada (geometry pass) no algoritmo de deferred shading
+	glGenFramebuffers(1, &gBuffer);
+	glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
 
+	////texturas para o output da computação do geometry pass:
 
-	////textura de imagem:
-	////reference: https://learnopengl.com/Getting-started/Textures
-	//unsigned int textures[2];
-	//glGenTextures(2, textures);
-	//glBindTexture(GL_TEXTURE_2D, textures[0]);
+	//position color buffer
+	glGenTextures(1, &gPosition);
+	glBindTexture(GL_TEXTURE_2D, gPosition);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0); //GL_COLOR_ATTACHMENT0
 
-	////seta parametros para wrap, filtro de minificação e magnização
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // opções: GL_NEAREST, GL_LINEAR
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // opções: GL_NEAREST, GL_LINEAR , GL_NEAREST_MIPMAP_NEAREST , GL_LINEAR_MIPMAP_LINEAR
+																							   //normal color buffer
+	glGenTextures(1, &gNormal);
+	glBindTexture(GL_TEXTURE_2D, gNormal);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0); //GL_COLOR_ATTACHMENT1
 
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-	//glGenerateMipmap(GL_TEXTURE_2D);
+																							 //color + specular color buffer
+	glGenTextures(1, &gColorSpec);
+	glBindTexture(GL_TEXTURE_2D, gColorSpec);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gColorSpec, 0); //GL_COLOR_ATTACHMENT2
 
-	////frees the image, now that we've used it:
-	////stbi_image_free(data);
-	////data = NULL;
-	//
-	////textura de bumpmap
-	//glBindTexture(GL_TEXTURE_2D, textures[1]);
+	// - tell openGl which color attachments we'll use (of this framebuffer) for rendering
+	unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 , GL_COLOR_ATTACHMENT2 };
+	glDrawBuffers(3, attachments);
 
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); // opções: GL_NEAREST, GL_LINEAR
-	//glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST); // opções: GL_NEAREST, GL_LINEAR , GL_NEAREST_MIPMAP_NEAREST , GL_LINEAR_MIPMAP_LINEAR
-
-	//glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width_bm, height_bm, 0, GL_RGB, GL_UNSIGNED_BYTE, bump_data);
-	////glGenerateMipmap(GL_TEXTURE_2D);
-
-	//VERTEX SHADER:
-	//lê file do vertex shader e o compila dinamicamente
-	std::string shaderString = readShaderFile("vertex.vert");
-
-	//cria objeto shader
-	unsigned int vertexShader;
-	vertexShader = glCreateShader(GL_VERTEX_SHADER);
-	//attach shader source code to the shader object and compile the shader
-	const char *c_str = shaderString.c_str(); // glShaderSource espera no 3o param um array de c-like strings. Nesse caso, só temos uma string nesse array. No 2o param está explícita esta informação
-	glShaderSource(vertexShader, 1, &c_str, NULL);
-	glCompileShader(vertexShader);
-
-	//checks for errors:
-	int success;
-	char infoLog[512];
-	glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-		std::cerr << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-		exit(1);
-	}
-
-	//FRAGMENT_SHADER
-	//lê file do vertex shader e o compila dinamicamente
-	shaderString = readShaderFile("fragment.frag");
-
-	//cria objeto shader
-	unsigned int fragmentShader;
-	fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-	//attach shader source code to the shader object and compile the shader
-	const char *c_str2 = shaderString.c_str(); // glShaderSource espera no 3o param um array de c-like strings. Nesse caso, só temos uma string nesse array. No 2o param está explícita esta informação
-	glShaderSource(fragmentShader, 1, &c_str2, NULL);
-	glCompileShader(fragmentShader);
-
-	//checks for errors:
-	glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-	if (!success)
-	{
-		glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-		std::cerr << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-		exit(1);
-	}
+	// finally check if framebuffer is complete
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+		std::cout << "Framebuffer not complete!" << std::endl;
+	glBindFramebuffer(GL_FRAMEBUFFER, 0); //unbind
 
 	glActiveTexture(GL_TEXTURE0);
-	tex1 = loadTexture("stones/stones.jpg");
-	//tex1 = loadTexture("golfball/golfball.jpg");
+	//tex1 = loadTexture("stones/stones.jpg");
+	tex1 = loadTexture("golfball/golfball.jpg");
 	glActiveTexture(GL_TEXTURE1);
-	tex2 = loadTexture("stones/stones_norm.jpg");
-	//tex2 = loadTexture("golfball/golfball.jpg");
+	//tex2 = loadTexture("stones/stones_norm.jpg");
+	tex2 = loadTexture("golfball/golfball.jpg");
+	
 	IsTextureLoaded = true;
 	IsBumpmapLoaded = true;
-
-	// SHADER PROGRAM
-	shaderProgram = glCreateProgram();
-	//attach shader to program
-	glAttachShader(shaderProgram, vertexShader);
-	glAttachShader(shaderProgram, fragmentShader);
-	glLinkProgram(shaderProgram);
-
-	//check for linking errors:
-	glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
-	if (!success) {
-		glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-		std::cerr << "ERROR::SHADER::LINKING_ERROR\n" << infoLog << std::endl;
-	}
-	glUseProgram(shaderProgram);
-
-	//deleta os objetos shader, que já cumpriram sua função
-	glDeleteShader(vertexShader);
-	glDeleteShader(fragmentShader);
 
 	//o buffer é composto de: 
 	//coordenadas(3) + cores(3) + normais(3) + coord_texturas(2) + tangentes(3) + bitangente(3)
@@ -780,7 +675,7 @@ void GLWindowManager::InitializeSceneInfo()
 	//unbind VAO
 	glBindVertexArray(0);
 
-	cout << shaderProgram << endl;
+	cout << gPass << endl;
 }
 
 // reference: https://learnopengl.com/Getting-started/Hello-Window, https://learnopengl.com/Getting-started/Hello-Triangle
@@ -789,7 +684,7 @@ void GLWindowManager::InitializeSceneInfo()
 void GLWindowManager::StartRenderLoop()
 {
 	//the render loop
-	cout << shaderProgram << endl;
+	cout << gPass << endl;
 	while (!glfwWindowShouldClose(window))
 	{
 		processInput(window);
@@ -798,79 +693,110 @@ void GLWindowManager::StartRenderLoop()
 		glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); //clears color and depth testing buffers
 
-		glUseProgram(shaderProgram);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex1);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex2);
-
-
-		glBindVertexArray(VAO); //bind
-
-		//atualiza matriz model-view-projection
-		UpdateMVPMatrix();
-		//passa as matrizes mvp pra placa
-		int mvpParam = glGetUniformLocation(shaderProgram, "mvp");
-		glUniformMatrix4fv(mvpParam, 1, GL_FALSE, glm::value_ptr(modelViewProjection));
-		int mvParam = glGetUniformLocation(shaderProgram, "mv");
-		glUniformMatrix4fv(mvParam, 1, GL_FALSE, glm::value_ptr(modelView));
-		int vParam = glGetUniformLocation(shaderProgram, "v");
-		glUniformMatrix4fv(vParam, 1, GL_FALSE, glm::value_ptr(view));
-		
-		//é uma mat3?
-		int ITmvParam = glGetUniformLocation(shaderProgram, "ITmv");
-		glUniformMatrix4fv(ITmvParam, 1, GL_FALSE, glm::value_ptr(ITmodelView));
-
-		//passa eye, light positions e nLights
-		int eyeParam = glGetUniformLocation(shaderProgram, "eye");
-		glUniform3f(eyeParam, eye.x, eye.y, eye.z);
-
-		int nLightsParam = glGetUniformLocation(shaderProgram, "nLights");
-		glUniform1i(nLightsParam, nLights);
-
-		int lightParam = glGetUniformLocation(shaderProgram, "lightPositions");
-		glUniform3fv(lightParam, 4, &lights[0]);
-
-		//passa texturas:
-
-
-		//se textura foi setada, usa textura
-		if (IsTextureLoaded)
+		//gBuffer render:
 		{
-			//informa pro shader que ele deve usar textura
-			int boolParam = glGetUniformLocation(shaderProgram, "useTexture");
-			glUniform1i(boolParam, 1);
+			glBindFramebuffer(GL_FRAMEBUFFER, gBuffer);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			glUseProgram(gPass);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, tex1);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex2);
+
+			glBindVertexArray(VAO); //bind
+
+			//atualiza matriz model-view-projection
+			UpdateMVPMatrix();
+			//passa as matrizes mvp pra placa
+			int mvpParam = glGetUniformLocation(gPass, "mvp");
+			glUniformMatrix4fv(mvpParam, 1, GL_FALSE, glm::value_ptr(modelViewProjection));
+			int mvParam = glGetUniformLocation(gPass, "mv");
+			glUniformMatrix4fv(mvParam, 1, GL_FALSE, glm::value_ptr(modelView));
+			int vParam = glGetUniformLocation(gPass, "v");
+			glUniformMatrix4fv(vParam, 1, GL_FALSE, glm::value_ptr(view));
+
+			//é uma mat3?
+			int ITmvParam = glGetUniformLocation(gPass, "ITmv");
+			glUniformMatrix4fv(ITmvParam, 1, GL_FALSE, glm::value_ptr(ITmodelView));
+
+			//passa eye, light positions e nLights
+			int eyeParam = glGetUniformLocation(gPass, "eye");
+			glUniform3f(eyeParam, eye.x, eye.y, eye.z);
+
+			int nLightsParam = glGetUniformLocation(gPass, "nLights");
+			glUniform1i(nLightsParam, nLights);
+
+			int lightParam = glGetUniformLocation(gPass, "lightPositions");
+			glUniform3fv(lightParam, 4, &lights[0]);
+
+			//passa texturas:
+
+			//se textura foi setada, usa textura
+			if (IsTextureLoaded)
+			{
+				//informa pro shader que ele deve usar textura
+				int boolParam = glGetUniformLocation(gPass, "useTexture");
+				glUniform1i(boolParam, 1);
+			}
+
+			if (IsBumpmapLoaded)
+			{
+				//informa pro shader que ele deve usar bumpmap
+				int boolParam = glGetUniformLocation(gPass, "useBumpmap");
+				glUniform1i(boolParam, 1);
+			}
+
+			glUniform1i(glGetUniformLocation(gPass, "texture_data"), 0);
+			glUniform1i(glGetUniformLocation(gPass, "bumpmap"), 1);
+
+			//glUniform3f(glGetUniformLocation(gPass, "Ka"), materials[0].ambient[0], materials[0].ambient[1], materials[0].ambient[2]);
+			//glUniform3f(glGetUniformLocation(gPass, "Ks"), materials[0].specular[0], materials[0].specular[1], materials[0].specular[2]);
+			//glUniform1f(glGetUniformLocation(gPass, "Mshi"), 128.0f);
+
+			glUniform3f(glGetUniformLocation(gPass, "Ka"), 1.0f, 1.0f, 1.0f);
+			glUniform3f(glGetUniformLocation(gPass, "Ks"), 0.3f, 0.3f, 0.3f);
+			glUniform1f(glGetUniformLocation(gPass, "Mshi"), 100.0f);
+
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, tex1);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, tex2);
+
+			//devo passar indices.size, que é a qtd de indices usados (3 para cada triangulo)
+			glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
+
+			//glDrawArrays(GL_TRIANGLES, 0, vertices.size());
+			glBindVertexArray(0); //unbind
+
+			glBindFramebuffer(GL_FRAMEBUFFER, 0); //unbind
 		}
 
-		if (IsBumpmapLoaded)
+		//lighting pass:
 		{
-			//informa pro shader que ele deve usar bumpmap
-			int boolParam = glGetUniformLocation(shaderProgram, "useBumpmap");
-			glUniform1i(boolParam, 1);
+			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+			glUseProgram(lPass);
+
+			glUniform1i(glGetUniformLocation(lPass, "gPosition"), 0);
+			glUniform1i(glGetUniformLocation(lPass, "gNormal"), 1);
+			glUniform1i(glGetUniformLocation(lPass, "gColorSpec"), 2);
+
+			//passa resultados do geometry pass como texturas
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, gPosition);
+
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_2D, gNormal);
+
+			glActiveTexture(GL_TEXTURE2);
+			glBindTexture(GL_TEXTURE_2D, gColorSpec);
+			
+
+			//render a quad, with the textures
+			renderQuad();
 		}
-
-		glUniform1i(glGetUniformLocation(shaderProgram, "texture_data"), 0);
-		glUniform1i(glGetUniformLocation(shaderProgram, "bumpmap"), 1);
-
-		//glUniform3f(glGetUniformLocation(shaderProgram, "Ka"), materials[0].ambient[0], materials[0].ambient[1], materials[0].ambient[2]);
-		//glUniform3f(glGetUniformLocation(shaderProgram, "Ks"), materials[0].specular[0], materials[0].specular[1], materials[0].specular[2]);
-		//glUniform1f(glGetUniformLocation(shaderProgram, "Mshi"), 128.0f);
-
-		glUniform3f(glGetUniformLocation(shaderProgram, "Ka"), 1.0f, 1.0f, 1.0f);
-		glUniform3f(glGetUniformLocation(shaderProgram, "Ks"), 0.3f, 0.3f, 0.3f);
-		glUniform1f(glGetUniformLocation(shaderProgram, "Mshi"), 100.0f);
-
-		glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, tex1);
-		glActiveTexture(GL_TEXTURE1);
-		glBindTexture(GL_TEXTURE_2D, tex2);
-		
-		//devo passar indices.size, que é a qtd de indices usados (3 para cada triangulo)
-		glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
-		
-		//glDrawArrays(GL_TRIANGLES, 0, vertices.size());
-		glBindVertexArray(0); //unbind
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -879,4 +805,32 @@ void GLWindowManager::StartRenderLoop()
 	std::cout << "window closed" << std::endl;
 	glfwTerminate();
 	return;
+}
+
+
+void GLWindowManager::renderQuad()
+{
+	if (quadVAO == 0)
+	{
+		float quadVertices[] = {
+			// positions        // texture Coords
+			-1.0f,  1.0f, 0.0f, 0.0f, 1.0f,
+			-1.0f, -1.0f, 0.0f, 0.0f, 0.0f,
+			1.0f,  1.0f, 0.0f, 1.0f, 1.0f,
+			1.0f, -1.0f, 0.0f, 1.0f, 0.0f,
+		};
+		// setup plane VAO
+		glGenVertexArrays(1, &quadVAO);
+		glGenBuffers(1, &quadVBO);
+		glBindVertexArray(quadVAO);
+		glBindBuffer(GL_ARRAY_BUFFER, quadVBO);
+		glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), &quadVertices, GL_STATIC_DRAW);
+		glEnableVertexAttribArray(0);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+		glEnableVertexAttribArray(1);
+		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	}
+	glBindVertexArray(quadVAO);
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+	glBindVertexArray(0);
 }

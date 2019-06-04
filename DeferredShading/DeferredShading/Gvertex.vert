@@ -17,9 +17,6 @@ out vec2 fgTexCoord;
 out vec3 fgTangent;
 out vec3 fgBitangent;
 
-uniform int useTexture;
-uniform int useBumpmap;
-
 //matriz model-view-projection
 uniform mat4 mvp;
 uniform mat4 mv;
@@ -42,11 +39,8 @@ void main()
 	fgColor = vec4(vtColor, 1.0f);
 	fgNormal = vtNormal;
 	
-	if(useTexture == 1 || useBumpmap == 1)
-	{
-		fgTexCoord = vtTexCoord;
-		fgTangent = vtTangent;
-		fgBitangent = vtBitangent;
-	}
-	
+	fgTexCoord = vtTexCoord;
+	fgTangent = vtTangent;
+	fgBitangent = vtBitangent;
+
 }

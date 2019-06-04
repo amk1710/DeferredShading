@@ -1,7 +1,4 @@
 ﻿C:\Program Files (x86)\MSBuild\Microsoft.Cpp\v4.0\V140\Microsoft.CppBuild.targets(392,5): warning MSB8028: The intermediate directory (Debug\) contains files shared from another project (Bumpmap.vcxproj).  This can lead to incorrect clean and rebuild behavior.
-  glad.c
-  main.cpp
-  lodepng.cpp
   GLWindowManager.cpp
 c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(40): warning C4101: 'k': unreferenced local variable
 c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(33): warning C4101: 'output_image': unreferenced local variable
@@ -12,6 +9,5 @@ c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindo
 c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(319): warning C4018: '<': signed/unsigned mismatch
 c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(357): warning C4018: '<': signed/unsigned mismatch
 c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(373): warning C4018: '<': signed/unsigned mismatch
-  Generating Code...
   DeferredShading.vcxproj -> C:\Users\Andre\Documents\DeferredShading\DeferredShading\Debug\DeferredShading.exe
   DeferredShading.vcxproj -> C:\Users\Andre\Documents\DeferredShading\DeferredShading\Debug\DeferredShading.pdb (Full PDB)

@@ -552,9 +552,6 @@ void GLWindowManager::InitializeSceneInfo()
 	glDeleteShader(vertexShaderL);
 	glDeleteShader(fragmentShaderL);
 
-
-
-
 	// END: build and compile shaders
 
 	//LOAD MODELS
@@ -566,9 +563,10 @@ void GLWindowManager::InitializeSceneInfo()
 	cameraTarget = glm::vec3(0.0, 0.0f, 0.0f);
 	up = glm::vec3(0.0f, 1.0f, 0.0f);
 
-	//values for up to 4 lights
+	//values for up to 32 lights
 	nLights = 1;
-	lights = { 0,3,4,    0,0,1,   0.5f,0.5f,1.5f };
+	lights = { 0,0,5,    0,0,1,   0.5f,0.5f,1.5f };
+	lightsColors = { 0.5f, 0.5f, 0.5f,	1,1,1,	1,1,1,	1,1,1 };
 
 	//END: LOAD MODELS
 
@@ -609,7 +607,7 @@ void GLWindowManager::InitializeSceneInfo()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, gPosition, 0); //GL_COLOR_ATTACHMENT0
 
-																							   //normal color buffer
+	//normal color buffer
 	glGenTextures(1, &gNormal);
 	glBindTexture(GL_TEXTURE_2D, gNormal);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
@@ -617,7 +615,7 @@ void GLWindowManager::InitializeSceneInfo()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1, GL_TEXTURE_2D, gNormal, 0); //GL_COLOR_ATTACHMENT1
 
-																							 //color + specular color buffer
+	//color + specular color buffer
 	glGenTextures(1, &gColorSpec);
 	glBindTexture(GL_TEXTURE_2D, gColorSpec);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, screenWidth, screenHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
@@ -625,9 +623,31 @@ void GLWindowManager::InitializeSceneInfo()
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT2, GL_TEXTURE_2D, gColorSpec, 0); //GL_COLOR_ATTACHMENT2
 
+	//tangent buffer
+	glGenTextures(1, &gTangent);
+	glBindTexture(GL_TEXTURE_2D, gTangent);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT3, GL_TEXTURE_2D, gTangent, 0); //GL_COLOR_ATTACHMENT3
+
+	//bitangent buffer. Talvez não precise, dado que bitange pode ser calcula tendo-se a normal e a tangente, usando produto vetorial
+	glGenTextures(1, &gBitangent);
+	glBindTexture(GL_TEXTURE_2D, gBitangent);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB16F, screenWidth, screenHeight, 0, GL_RGB, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT4, GL_TEXTURE_2D, gBitangent, 0); //GL_COLOR_ATTACHMENT4
+
 	// - tell openGl which color attachments we'll use (of this framebuffer) for rendering
-	unsigned int attachments[3] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 , GL_COLOR_ATTACHMENT2 };
-	glDrawBuffers(3, attachments);
+	unsigned int attachments[5] = { GL_COLOR_ATTACHMENT0 , GL_COLOR_ATTACHMENT1 , GL_COLOR_ATTACHMENT2, GL_COLOR_ATTACHMENT3, GL_COLOR_ATTACHMENT4 };
+	glDrawBuffers(5, attachments);
+
+	//create and attach depth buffer(render buffer)
+	glGenRenderbuffers(1, &rboDepth);
+	glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, screenWidth, screenHeight);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
 
 	// finally check if framebuffer is complete
 	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
@@ -636,10 +656,10 @@ void GLWindowManager::InitializeSceneInfo()
 
 	glActiveTexture(GL_TEXTURE0);
 	//tex1 = loadTexture("stones/stones.jpg");
-	tex1 = loadTexture("golfball/golfball.jpg");
+	tex1 = loadTexture("golfball/white.png");
 	glActiveTexture(GL_TEXTURE1);
 	//tex2 = loadTexture("stones/stones_norm.jpg");
-	tex2 = loadTexture("golfball/golfball.jpg");
+	tex2 = loadTexture("golfball/golfball.png");
 	
 	IsTextureLoaded = true;
 	IsBumpmapLoaded = true;
@@ -725,28 +745,7 @@ void GLWindowManager::StartRenderLoop()
 			int eyeParam = glGetUniformLocation(gPass, "eye");
 			glUniform3f(eyeParam, eye.x, eye.y, eye.z);
 
-			int nLightsParam = glGetUniformLocation(gPass, "nLights");
-			glUniform1i(nLightsParam, nLights);
-
-			int lightParam = glGetUniformLocation(gPass, "lightPositions");
-			glUniform3fv(lightParam, 4, &lights[0]);
-
 			//passa texturas:
-
-			//se textura foi setada, usa textura
-			if (IsTextureLoaded)
-			{
-				//informa pro shader que ele deve usar textura
-				int boolParam = glGetUniformLocation(gPass, "useTexture");
-				glUniform1i(boolParam, 1);
-			}
-
-			if (IsBumpmapLoaded)
-			{
-				//informa pro shader que ele deve usar bumpmap
-				int boolParam = glGetUniformLocation(gPass, "useBumpmap");
-				glUniform1i(boolParam, 1);
-			}
 
 			glUniform1i(glGetUniformLocation(gPass, "texture_data"), 0);
 			glUniform1i(glGetUniformLocation(gPass, "bumpmap"), 1);
@@ -754,10 +753,6 @@ void GLWindowManager::StartRenderLoop()
 			//glUniform3f(glGetUniformLocation(gPass, "Ka"), materials[0].ambient[0], materials[0].ambient[1], materials[0].ambient[2]);
 			//glUniform3f(glGetUniformLocation(gPass, "Ks"), materials[0].specular[0], materials[0].specular[1], materials[0].specular[2]);
 			//glUniform1f(glGetUniformLocation(gPass, "Mshi"), 128.0f);
-
-			glUniform3f(glGetUniformLocation(gPass, "Ka"), 1.0f, 1.0f, 1.0f);
-			glUniform3f(glGetUniformLocation(gPass, "Ks"), 0.3f, 0.3f, 0.3f);
-			glUniform1f(glGetUniformLocation(gPass, "Mshi"), 100.0f);
 
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, tex1);
@@ -782,7 +777,26 @@ void GLWindowManager::StartRenderLoop()
 			glUniform1i(glGetUniformLocation(lPass, "gPosition"), 0);
 			glUniform1i(glGetUniformLocation(lPass, "gNormal"), 1);
 			glUniform1i(glGetUniformLocation(lPass, "gColorSpec"), 2);
+			glUniform1i(glGetUniformLocation(lPass, "gTangent"), 3);
+			glUniform1i(glGetUniformLocation(lPass, "gBitangent"), 4);
 
+			int eyeParam = glGetUniformLocation(lPass, "eye");
+			glUniform3f(eyeParam, eye.x, eye.y, eye.z);
+
+			int nLightsParam = glGetUniformLocation(lPass, "nLights");
+			glUniform1i(nLightsParam, nLights);
+
+			int lightParam = glGetUniformLocation(lPass, "lightPositions");
+			glUniform3fv(lightParam, 32, &lights[0]);
+
+			int lightColorParam = glGetUniformLocation(lPass, "lightColors");
+			glUniform3fv(lightColorParam, 32, &lightsColors[0]);
+
+			glUniform3f(glGetUniformLocation(lPass, "Ka"), 0.5f, 0.5f, 0.5f);
+			glUniform3f(glGetUniformLocation(lPass, "Ks"), 0.01f, 0.01f, 0.01f);
+			glUniform1f(glGetUniformLocation(lPass, "Mshi"), 10.0f);
+
+			
 			//passa resultados do geometry pass como texturas
 			glActiveTexture(GL_TEXTURE0);
 			glBindTexture(GL_TEXTURE_2D, gPosition);
@@ -792,7 +806,12 @@ void GLWindowManager::StartRenderLoop()
 
 			glActiveTexture(GL_TEXTURE2);
 			glBindTexture(GL_TEXTURE_2D, gColorSpec);
-			
+
+			glActiveTexture(GL_TEXTURE3);
+			glBindTexture(GL_TEXTURE_2D, gTangent);
+
+			glActiveTexture(GL_TEXTURE4);
+			glBindTexture(GL_TEXTURE_2D, gBitangent);			
 
 			//render a quad, with the textures
 			renderQuad();

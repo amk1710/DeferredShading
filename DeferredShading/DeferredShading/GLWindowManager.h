@@ -62,7 +62,8 @@ private:
 	float angle;
 
 	int nLights;
-	std::array<float, 3 * 4> lights;
+	std::array<float, 3 * 32> lights;
+	std::array<float, 3 * 32> lightsColors;
 
 	//aux functions
 	std::string GLWindowManager::readShaderFile(const char* name);
@@ -77,7 +78,9 @@ private:
 	//gBuffer framebuffer stuff
 	unsigned int gPass;
 	unsigned int gBuffer;
-	unsigned int gPosition, gNormal, gColorSpec;
+	unsigned int gPosition, gNormal, gColorSpec, gTangent, gBitangent;
+
+	unsigned int rboDepth;
 
 	unsigned int lPass;
 

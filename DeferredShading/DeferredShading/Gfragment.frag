@@ -4,16 +4,12 @@
 
 //Fragment Shader
 
-//matriz model-view-projection
+//matriz model-view-projection, model-view e view
 uniform mat4 mvp;
-
-//matriz model-view
 uniform mat4 mv;
-
-//matriz de view
 uniform mat4 v;
 
-//matriz inversa transposta da model-view. Usada para as normais
+//matriz inversa transposta da model-view. Usada para as normais?
 uniform mat4 ITmv;
 
 //eye, em coordenadas do mundo
@@ -22,6 +18,8 @@ uniform vec3 eye;
 in vec3 fgPosition;
 in vec4 fgColor;
 in vec3 fgNormal;
+in vec3 fgTangent;
+in vec3 fgBitangent;
 
 struct material
 {
@@ -46,57 +44,34 @@ material mymaterial = material(
 in vec2 fgTexCoord;
 uniform sampler2D texture_data;
 uniform sampler2D bumpmap;
-uniform int useTexture;
-uniform int useBumpmap;
 
-
-in vec3 fgTangent;
-in vec3 fgBitangent;
-
-//função auxiliar para ajuste das coordanadas do bumpmap
+//função auxiliar para ajuste das coordenadas do bumpmap
 vec3 expand(vec3 v)
 {
 	return (v - 0.5) * 2;
 }
 
 
-layout (location = 0) out vec3 gPosition;
+layout (location = 0) out vec3 gPosition; //vai sair em coordenadas do modelo!
 layout (location = 1) out vec3 gNormal;
 layout (location = 2) out vec4 gColorSpec;
+layout (location = 3) out vec3 gTangent;
+layout (location = 4) out vec3 gBitangent;
 
 
 void main()
 {
-	gPosition = fgPosition; // ???
-
-	if(useBumpmap == 1)
-	{
-		//usando mapeamento de normais
-		vec3 normalTex = vec3(texture(bumpmap, fgTexCoord)); //precisa do vec3 cast nessa linha?
-		gNormal = expand(normalTex); 
-	}
-	else
-	{
-		gNormal = normalize(fgNormal);
-	}
-
-	if(useTexture == 1)
-	{
-		gColorSpec.rgb = vec3(texture(texture_data, fgTexCoord));
-		gColorSpec.a = 1; //componente especular, alpha, depende do material?
-	}
-	else
-	{
-		gColorSpec = fgColor;
-	}
-
-	//pixelColor = vec4(fgPosition.x, fgPosition.y, fgPosition.z, 1);
-	//pixelColor = vec4(0, 0, 1, 1);
-
-	//gPosition = gNormal;
-	//gPosition = vec3(gColorSpec.r, gColorSpec.g, gColorSpec.b);
-
-
-
 	
+	gPosition = fgPosition;
+
+	//usando mapeamento de normais
+	vec3 normalTex = vec3(texture(bumpmap, fgTexCoord)); //precisa do vec3 cast nessa linha?
+	gNormal = expand(normalTex); 
+
+	gTangent = fgTangent;
+	gBitangent = fgBitangent;
+	
+	gColorSpec.rgb = vec3(texture(texture_data, fgTexCoord));
+	gColorSpec.a = 1; //componente especular, alpha, depende do material?
+		
 }

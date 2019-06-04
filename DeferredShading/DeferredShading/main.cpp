@@ -9,8 +9,8 @@ int main()
 	GLWindowManager wm = GLWindowManager();
 	
 	
-	//wm.LoadModel("golfball/golfball.obj", false);
-	wm.LoadModel("stones/stones.obj", false);
+	wm.LoadModel("golfball/golfball.obj", false);
+	//wm.LoadModel("stones/stones.obj", false);
 	//wm.LoadBumpmap("golfball/golfball.png");
 	//wm.LoadTexture("golfball/golfball.png");
 	

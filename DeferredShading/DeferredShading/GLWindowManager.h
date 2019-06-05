@@ -54,6 +54,7 @@ private:
 	unsigned int texture;
 	unsigned int bumpmap;
 
+	glm::mat4 model;
 	glm::mat4 view;
 	glm::mat4 modelView;
 	glm::mat4 ITmodelView;

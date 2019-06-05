@@ -13,6 +13,9 @@ uniform mat4 mv;
 //matriz de view
 uniform mat4 v;
 
+//matriz de model
+uniform mat4 m;
+
 //matriz inversa transposta da model-view. Usada para as normais
 uniform mat4 ITmv;
 
@@ -25,6 +28,7 @@ const float intensity = 1.0f;
 uniform int nLights; //o numero de luzes a ser realmente usado
 uniform vec3 lightPositions[N_LIGHTS];
 uniform vec3 lightColors[N_LIGHTS];
+vec3 lightSpecular = vec3(0.5, 0.5, 0.5);
 struct material
 {
   vec4 diffuse;
@@ -59,11 +63,11 @@ vec4 scene_ambient = vec4(0.2, 0.2, 0.2, 1);
 void main()
 {
 	
-	vec3 position = vec3(texture(gPosition, fgtexCoord));
-	vec3 bumpNormal = vec3(texture(gNormal, fgtexCoord));
-	vec4 fgColor = texture(gColorSpec, fgtexCoord);
-	vec3 tangent = vec3(texture(gTangent, fgtexCoord));
-	vec3 bitangent = vec3(texture(gBitangent, fgtexCoord));
+	vec3 position = vec3(texture(gPosition, fgtexCoord)); //model
+	vec3 bumpNormal = vec3(texture(gNormal, fgtexCoord)); //tangent
+	vec4 fgColor = texture(gColorSpec, fgtexCoord); // ...
+	vec3 tangent = vec3(texture(gTangent, fgtexCoord)); // ...
+	vec3 bitangent = vec3(texture(gBitangent, fgtexCoord)); // ...
 	
 	material mymaterial = material(
 	  fgColor,
@@ -72,20 +76,34 @@ void main()
 	);
 
 	//calculo a normal "default", a da superfície, usando a tangente e a bitangente
+	//espaço da tangente
 	vec3 defNormal = cross(tangent, bitangent);
+	//defNormal = (m * vec4(defNormal,1)).xyz;
 
 	//com a normal, tangente e bitangente, construo a matrix TBN transposta:
-	tangent = normalize(tangent);
-	bitangent = normalize(bitangent);
-	defNormal = normalize(defNormal);
+	tangent = normalize(mat3(m) * tangent);
+	bitangent = normalize(mat3(m) * bitangent);
+	defNormal = normalize(mat3(m) * defNormal);
 
 	mat3 TBN = transpose(mat3(tangent, bitangent, defNormal));
 
-	//calculo V em coordenadas do mundo
-	vec3 V = eye - position;
+	//calculo V em coordenadas da textura
+
+	vec3 eyeT = TBN * eye;
+
+	vec4 position4 = m * vec4(position, 1);
+	vec3 pos3 = TBN * position4.xyz;
+	
+	vec3 V = normalize(eyeT - pos3);
+
+	//vec4 position4 = m * vec4(position, 1);
+	//position4 = position4 / position4.w;
+	//vec3 pos3 = vec3(position4.x, position4.y, position4.z);
+	
+	//vec3 V = eye - pos3;
 
 	//passo V pras coordenadas de textura, usando a TBN
-	V = TBN * V;
+	//V = TBN * V;
 
 	//cor ambiente
 	vec4 ambientColor = scene_ambient * mymaterial.ambient;
@@ -96,10 +114,12 @@ void main()
 	//cálculo da iluminação
 	for(int i = 0; i < nLights; i++)
 	{
-		//calculo vetor L
-		vec3 L = lightPositions[i] - position;
+		//calculo vetor L nas coordenadas de textura
+		vec3 Lpos = TBN * lightPositions[i];
+		vec3 L = normalize(lightPositions[i] - pos3);
+		
 		//uso TBN pra passar L pra coordenadas de textura
-		L = TBN * L;
+		//L = TBN * L;
 
 		//cálculo da iluminação (Phong)
 		float dotp = dot(L, bumpNormal);
@@ -108,7 +128,6 @@ void main()
 			diffuse += lightColors[i] * dotp * mymaterial.diffuse;
 
 			vec3 R = normalize(reflect(L, bumpNormal));
-			vec3 lightSpecular = vec3(0, 0, 0.1);
 			specularColor += vec3( mymaterial.specular * pow(dot(R, V), Mshi) * lightSpecular);
 		}
 
@@ -116,5 +135,5 @@ void main()
 
 	//pixelColor = texture(defNormal, fgtexCoord);
 	pixelColor = ambientColor + vec4(diffuse + specularColor, 1);
-	//pixelColor = vec4(specularColor, 1);
+	//pixelColor = vec4(pos3, 1);
 }

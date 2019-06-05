@@ -143,8 +143,7 @@ void GLWindowManager::processInput(GLFWwindow *window)
 
 	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
 	{
-		cout << "Outputting fbo" << endl;
-		FBO_2_file();
+
 	}
 
 
@@ -204,13 +203,13 @@ void GLWindowManager::UpdateMVPMatrix()
 
 	glm::mat4 View = glm::lookAt(eye, cameraTarget, up);
 
-	glm::mat4 Model = glm::scale(glm::mat4(1.0f), glm::vec3(scale)) * glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 1.0f, 0.0f));
+	model = glm::scale(glm::mat4(1.0f), glm::vec3(scale)) * glm::rotate(glm::mat4(1.0f), angle, glm::vec3(0.0f, 1.0f, 0.0f));
 
 
 	
 	view = View;
-	modelView = View * Model;
-	modelViewProjection = Projection * View * Model;
+	modelView = View * model;
+	modelViewProjection = Projection * View * model;
 
 	//a inversa transposta da modelView
 	//primeiro inverte e depois tranpõe?
@@ -565,7 +564,7 @@ void GLWindowManager::InitializeSceneInfo()
 
 	//values for up to 32 lights
 	nLights = 1;
-	lights = { 0,0,5,    0,0,1,   0.5f,0.5f,1.5f };
+	lights = { 5,5,5,    0,0,1,   0.5f,0.5f,1.5f };
 	lightsColors = { 0.5f, 0.5f, 0.5f,	1,1,1,	1,1,1,	1,1,1 };
 
 	//END: LOAD MODELS
@@ -793,9 +792,11 @@ void GLWindowManager::StartRenderLoop()
 			glUniform3fv(lightColorParam, 32, &lightsColors[0]);
 
 			glUniform3f(glGetUniformLocation(lPass, "Ka"), 0.5f, 0.5f, 0.5f);
-			glUniform3f(glGetUniformLocation(lPass, "Ks"), 0.01f, 0.01f, 0.01f);
-			glUniform1f(glGetUniformLocation(lPass, "Mshi"), 10.0f);
+			glUniform3f(glGetUniformLocation(lPass, "Ks"), 1.0f, 1.f, 1.f);
+			glUniform1f(glGetUniformLocation(lPass, "Mshi"), 100.0f);
 
+			int mParam = glGetUniformLocation(lPass, "m");
+			glUniformMatrix4fv(mParam, 1, GL_FALSE, glm::value_ptr(model));
 			
 			//passa resultados do geometry pass como texturas
 			glActiveTexture(GL_TEXTURE0);

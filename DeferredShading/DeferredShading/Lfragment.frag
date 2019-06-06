@@ -23,7 +23,6 @@ uniform mat4 ITmv;
 uniform vec3 eye;
 
 const int N_LIGHTS = 32;
-const float intensity = 1.0f;
 
 uniform int nLights; //o numero de luzes a ser realmente usado
 uniform vec3 lightPositions[N_LIGHTS];
@@ -96,20 +95,13 @@ void main()
 	
 	vec3 V = normalize(eyeT - pos3);
 
-	//vec4 position4 = m * vec4(position, 1);
-	//position4 = position4 / position4.w;
-	//vec3 pos3 = vec3(position4.x, position4.y, position4.z);
-	
-	//vec3 V = eye - pos3;
-
-	//passo V pras coordenadas de textura, usando a TBN
-	//V = TBN * V;
-
 	//cor ambiente
 	vec4 ambientColor = scene_ambient * mymaterial.ambient;
 	//cores difusa e especular
 	vec3 diffuse = vec3(0, 0, 0);
 	vec3 specularColor = vec3(0, 0, 0);
+
+	float reductionFactor = 1;
 
 	//cálculo da iluminação
 	for(int i = 0; i < nLights; i++)
@@ -125,15 +117,15 @@ void main()
 		float dotp = dot(L, bumpNormal);
 		if(dotp > 0)
 		{
-			diffuse += lightColors[i] * dotp * mymaterial.diffuse;
+			diffuse += lightColors[i] * dotp * mymaterial.diffuse * reductionFactor;
 
 			vec3 R = normalize(reflect(L, bumpNormal));
-			specularColor += vec3( mymaterial.specular * pow(dot(R, V), Mshi) * lightSpecular);
+			vec3 lightS = lightSpecular * lightColors[i];
+			specularColor += vec3( mymaterial.specular * pow(dot(R, V), Mshi) * lightS * reductionFactor);
 		}
 
 	}
 
-	//pixelColor = texture(defNormal, fgtexCoord);
 	pixelColor = ambientColor + vec4(diffuse + specularColor, 1);
-	//pixelColor = vec4(pos3, 1);
+	
 }

@@ -163,6 +163,7 @@
     <ClInclude Include="lodepng.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="debugShader.frag" />
     <None Include="Gfragment.frag" />
     <None Include="Gvertex.vert" />
     <None Include="Lfragment.frag" />

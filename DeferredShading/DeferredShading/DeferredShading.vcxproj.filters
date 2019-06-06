@@ -49,5 +49,8 @@
     <None Include="Lvertex.vert">
       <Filter>Source Files</Filter>
     </None>
+    <None Include="debugShader.frag">
+      <Filter>Source Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

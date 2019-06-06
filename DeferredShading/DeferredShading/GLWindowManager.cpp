@@ -15,6 +15,8 @@
 
 #include "lodepng.h"
 
+#include <random>
+
 
 #define TINYOBJLOADER_IMPLEMENTATION
 //#include <tiny_obj_loader.h>
@@ -123,12 +125,27 @@ void GLWindowManager::processInput(GLFWwindow *window)
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
 	{
-		scale += 0.001f;
+		eye.z += 0.01;
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
 	{
-		scale -= 0.001f;
+		eye.z -= 0.01f;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+	{
+		eye.y += 0.01f;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+	{
+		eye.y -= 0.01f;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS)
+	{
+		tex3active = !tex3active;
 	}
 
 	if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
@@ -143,8 +160,61 @@ void GLWindowManager::processInput(GLFWwindow *window)
 
 	if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
 	{
-
+		incNLights = min(incNLights + 0.1f, 32.0f);
+		nLights = int(incNLights);
+		cout << "nLights: " << nLights << endl;
 	}
+
+	if (glfwGetKey(window, GLFW_KEY_O) == GLFW_PRESS)
+	{
+		incNLights = max(incNLights - 0.1f, 0.0f);
+		nLights = int(incNLights);
+		cout << "nLights: " << nLights << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_0) == GLFW_PRESS)
+	{
+		usingDebug = true;
+		cout << "Using Debug: true" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_9) == GLFW_PRESS)
+	{
+		usingDebug = false;
+		cout << "Using Debug: false" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_1) == GLFW_PRESS)
+	{
+		selectTexture = 1;
+		cout << "selectTexture: Position" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_2) == GLFW_PRESS)
+	{
+		selectTexture = 2;
+		cout << "selectTexture: Bump normal" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_3) == GLFW_PRESS)
+	{
+		selectTexture = 3;
+		cout << "selectTexture: color" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_4) == GLFW_PRESS)
+	{
+		selectTexture = 4;
+		cout << "selectTexture: tangent" << endl;
+	}
+
+	if (glfwGetKey(window, GLFW_KEY_5) == GLFW_PRESS)
+	{
+		selectTexture = 5;
+		cout << "selectTexture: bitangent" << endl;
+	}
+
+
 
 
 }
@@ -455,10 +525,19 @@ void GLWindowManager::LoadBumpmap(const char* filepath)
 
 }
 
+void GLWindowManager::randomPointInSphere(float *x, float *y, float *z, float radius)
+{
+	//https://math.stackexchange.com/questions/1585975/how-to-generate-random-points-on-a-sphere
+
+	
+}
+
 
 void GLWindowManager::InitializeSceneInfo()
 {
 	// reference: https://learnopengl.com/Getting-started/Hello-Window, https://learnopengl.com/Getting-started/Hello-Triangle
+
+	usingDebug = false;
 
 	//initialize opengl
 	glfwInit();
@@ -510,6 +589,10 @@ void GLWindowManager::InitializeSceneInfo()
 	unsigned int fragmentShaderL;
 	BuildShader("Lfragment.frag", &fragmentShaderL, GL_FRAGMENT_SHADER);
 
+	//shader Debug
+	unsigned int DebugL;
+	BuildShader("debugShader.frag", &DebugL, GL_FRAGMENT_SHADER);
+
 	// SHADER PROGRAM G PASS
 	int success;
 	char infoLog[512];
@@ -544,6 +627,21 @@ void GLWindowManager::InitializeSceneInfo()
 	}
 	//glUseProgram(gPass);
 
+	//SHADER PROGRAM DEBUG L PASS
+	dPass = glCreateProgram();
+	//attach shader to program
+	glAttachShader(dPass, vertexShaderL);
+	glAttachShader(dPass, DebugL);
+	glLinkProgram(dPass);
+
+	//check for linking errors:
+	glGetProgramiv(dPass, GL_LINK_STATUS, &success);
+	if (!success) {
+		glGetProgramInfoLog(dPass, 512, NULL, infoLog);
+		std::cerr << "ERROR::SHADER::LINKING_ERROR\n" << infoLog << std::endl;
+	}
+
+
 
 	//deleta os objetos shader, que já cumpriram sua função
 	glDeleteShader(vertexShaderG);
@@ -562,10 +660,53 @@ void GLWindowManager::InitializeSceneInfo()
 	cameraTarget = glm::vec3(0.0, 0.0f, 0.0f);
 	up = glm::vec3(0.0f, 1.0f, 0.0f);
 
+
+	
 	//values for up to 32 lights
-	nLights = 1;
-	lights = { 5,5,5,    0,0,1,   0.5f,0.5f,1.5f };
-	lightsColors = { 0.5f, 0.5f, 0.5f,	1,1,1,	1,1,1,	1,1,1 };
+	int maxLights = 32;
+	nLights = 32; //o numero de luzes a ser realmente usado
+	incNLights = 32.0f;
+	srand(17); //set random seed
+	//normal distribution
+	std::default_random_engine generator;
+	std::normal_distribution<float> distribution(0.0, 12.0);
+	float radius = 100.0f;
+	for (int i = 0; i < maxLights; i++)
+	{
+		//gera três pontos aletorios numa esfera de raio r
+		float x, y, z;
+		do
+		{
+			x = distribution(generator);
+			y = distribution(generator);
+			z = distribution(generator);
+		} while (x == 0.0f && y == 0.0f && z == 0.0f); //previne os três de darem 0, o que quebraria a conta a seguir
+
+		//normaliza
+		float f = 1 / (x*x + y*y + z*z);
+		x *= f;
+		y *= f;
+		z *= f;
+		
+		lights[3 * i] = x * radius;
+		lights[3 * i + 1] = y * radius;
+		lights[3 * i + 2] = z * radius;
+
+		float reductionFactor = i >= 8 ? 0.1f : 1.0f;
+		reductionFactor = i == 8 ? 0 : reductionFactor;
+
+		//sorteia cores da luz
+		lightsColors[3 * i] = reductionFactor * static_cast <float> ((rand()) / static_cast <float> (RAND_MAX));
+		lightsColors[3 * i + 1] = reductionFactor * static_cast <float> ((rand()) / static_cast <float> (RAND_MAX));
+		lightsColors[3 * i + 2] = reductionFactor * static_cast <float> ((rand()) / static_cast <float> (RAND_MAX));
+
+
+		cout << lights[3 * i] << ", " << lights[3 * i + 1] << ", " << lights[3 * i + 2] << endl;
+
+	}
+	
+	//lights = { 5,5,5,    0,0,1,   0.5f,0.5f,1.5f };
+	//lightsColors = { 0.5f, 0.5f, 0.5f,	1,1,1,	1,1,1,	1,1,1 };
 
 	//END: LOAD MODELS
 
@@ -659,9 +800,11 @@ void GLWindowManager::InitializeSceneInfo()
 	glActiveTexture(GL_TEXTURE1);
 	//tex2 = loadTexture("stones/stones_norm.jpg");
 	tex2 = loadTexture("golfball/golfball.png");
+	tex3 = loadTexture("golfball/Test-Pattern.jpg");
 	
 	IsTextureLoaded = true;
 	IsBumpmapLoaded = true;
+	tex3active = false;
 
 	//o buffer é composto de: 
 	//coordenadas(3) + cores(3) + normais(3) + coord_texturas(2) + tangentes(3) + bitangente(3)
@@ -754,9 +897,18 @@ void GLWindowManager::StartRenderLoop()
 			//glUniform1f(glGetUniformLocation(gPass, "Mshi"), 128.0f);
 
 			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, tex1);
+			if (tex3active)
+			{
+				glBindTexture(GL_TEXTURE_2D, tex3);
+			}
+			else
+			{
+				glBindTexture(GL_TEXTURE_2D, tex1);
+			}
 			glActiveTexture(GL_TEXTURE1);
 			glBindTexture(GL_TEXTURE_2D, tex2);
+			
+			
 
 			//devo passar indices.size, que é a qtd de indices usados (3 para cada triangulo)
 			glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, 0);
@@ -769,50 +921,86 @@ void GLWindowManager::StartRenderLoop()
 
 		//lighting pass:
 		{
-			glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+			if (usingDebug)
+			{
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			glUseProgram(lPass);
+				glUseProgram(dPass);
 
-			glUniform1i(glGetUniformLocation(lPass, "gPosition"), 0);
-			glUniform1i(glGetUniformLocation(lPass, "gNormal"), 1);
-			glUniform1i(glGetUniformLocation(lPass, "gColorSpec"), 2);
-			glUniform1i(glGetUniformLocation(lPass, "gTangent"), 3);
-			glUniform1i(glGetUniformLocation(lPass, "gBitangent"), 4);
+				glUniform1i(glGetUniformLocation(dPass, "gPosition"), 0);
+				glUniform1i(glGetUniformLocation(dPass, "gNormal"), 1);
+				glUniform1i(glGetUniformLocation(dPass, "gColorSpec"), 2);
+				glUniform1i(glGetUniformLocation(dPass, "gTangent"), 3);
+				glUniform1i(glGetUniformLocation(dPass, "gBitangent"), 4);
 
-			int eyeParam = glGetUniformLocation(lPass, "eye");
-			glUniform3f(eyeParam, eye.x, eye.y, eye.z);
+				int selectParam = glGetUniformLocation(dPass, "selectTexture");
+				glUniform1i(selectParam, selectTexture);
 
-			int nLightsParam = glGetUniformLocation(lPass, "nLights");
-			glUniform1i(nLightsParam, nLights);
+				//passa resultados do geometry pass como texturas
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, gPosition);
 
-			int lightParam = glGetUniformLocation(lPass, "lightPositions");
-			glUniform3fv(lightParam, 32, &lights[0]);
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, gNormal);
 
-			int lightColorParam = glGetUniformLocation(lPass, "lightColors");
-			glUniform3fv(lightColorParam, 32, &lightsColors[0]);
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, gColorSpec);
 
-			glUniform3f(glGetUniformLocation(lPass, "Ka"), 0.5f, 0.5f, 0.5f);
-			glUniform3f(glGetUniformLocation(lPass, "Ks"), 1.0f, 1.f, 1.f);
-			glUniform1f(glGetUniformLocation(lPass, "Mshi"), 100.0f);
+				glActiveTexture(GL_TEXTURE3);
+				glBindTexture(GL_TEXTURE_2D, gTangent);
 
-			int mParam = glGetUniformLocation(lPass, "m");
-			glUniformMatrix4fv(mParam, 1, GL_FALSE, glm::value_ptr(model));
-			
-			//passa resultados do geometry pass como texturas
-			glActiveTexture(GL_TEXTURE0);
-			glBindTexture(GL_TEXTURE_2D, gPosition);
+				glActiveTexture(GL_TEXTURE4);
+				glBindTexture(GL_TEXTURE_2D, gBitangent);
 
-			glActiveTexture(GL_TEXTURE1);
-			glBindTexture(GL_TEXTURE_2D, gNormal);
+			}
+			else
+			{
 
-			glActiveTexture(GL_TEXTURE2);
-			glBindTexture(GL_TEXTURE_2D, gColorSpec);
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-			glActiveTexture(GL_TEXTURE3);
-			glBindTexture(GL_TEXTURE_2D, gTangent);
+				glUseProgram(lPass);
 
-			glActiveTexture(GL_TEXTURE4);
-			glBindTexture(GL_TEXTURE_2D, gBitangent);			
+				glUniform1i(glGetUniformLocation(lPass, "gPosition"), 0);
+				glUniform1i(glGetUniformLocation(lPass, "gNormal"), 1);
+				glUniform1i(glGetUniformLocation(lPass, "gColorSpec"), 2);
+				glUniform1i(glGetUniformLocation(lPass, "gTangent"), 3);
+				glUniform1i(glGetUniformLocation(lPass, "gBitangent"), 4);
+
+				int eyeParam = glGetUniformLocation(lPass, "eye");
+				glUniform3f(eyeParam, eye.x, eye.y, eye.z);
+
+				int nLightsParam = glGetUniformLocation(lPass, "nLights");
+				glUniform1i(nLightsParam, nLights);
+
+				int lightParam = glGetUniformLocation(lPass, "lightPositions");
+				glUniform3fv(lightParam, 32, &lights[0]);
+
+				int lightColorParam = glGetUniformLocation(lPass, "lightColors");
+				glUniform3fv(lightColorParam, 32, &lightsColors[0]);
+
+				glUniform3f(glGetUniformLocation(lPass, "Ka"), 0.5f, 0.5f, 0.5f);
+				glUniform3f(glGetUniformLocation(lPass, "Ks"), 1.0f, 1.f, 1.f);
+				glUniform1f(glGetUniformLocation(lPass, "Mshi"), 100.0f);
+
+				int mParam = glGetUniformLocation(lPass, "m");
+				glUniformMatrix4fv(mParam, 1, GL_FALSE, glm::value_ptr(model));
+
+				//passa resultados do geometry pass como texturas
+				glActiveTexture(GL_TEXTURE0);
+				glBindTexture(GL_TEXTURE_2D, gPosition);
+
+				glActiveTexture(GL_TEXTURE1);
+				glBindTexture(GL_TEXTURE_2D, gNormal);
+
+				glActiveTexture(GL_TEXTURE2);
+				glBindTexture(GL_TEXTURE_2D, gColorSpec);
+
+				glActiveTexture(GL_TEXTURE3);
+				glBindTexture(GL_TEXTURE_2D, gTangent);
+
+				glActiveTexture(GL_TEXTURE4);
+				glBindTexture(GL_TEXTURE_2D, gBitangent);
+			}
 
 			//render a quad, with the textures
 			renderQuad();

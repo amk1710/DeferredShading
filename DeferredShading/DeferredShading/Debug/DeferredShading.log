@@ -3,15 +3,17 @@
   main.cpp
   lodepng.cpp
   GLWindowManager.cpp
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(40): warning C4101: 'k': unreferenced local variable
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(33): warning C4101: 'output_image': unreferenced local variable
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(40): warning C4101: 'j': unreferenced local variable
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(40): warning C4101: 'i': unreferenced local variable
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(116): warning C4305: '-=': truncation from 'double' to 'float'
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(121): warning C4305: '+=': truncation from 'double' to 'float'
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(318): warning C4018: '<': signed/unsigned mismatch
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(356): warning C4018: '<': signed/unsigned mismatch
-c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(372): warning C4018: '<': signed/unsigned mismatch
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(42): warning C4101: 'k': unreferenced local variable
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(35): warning C4101: 'output_image': unreferenced local variable
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(42): warning C4101: 'j': unreferenced local variable
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(42): warning C4101: 'i': unreferenced local variable
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(118): warning C4305: '-=': truncation from 'double' to 'float'
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(123): warning C4305: '+=': truncation from 'double' to 'float'
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(128): warning C4305: '+=': truncation from 'double' to 'float'
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(388): warning C4018: '<': signed/unsigned mismatch
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(426): warning C4018: '<': signed/unsigned mismatch
+c:\users\andre\documents\deferredshading\deferredshading\deferredshading\glwindowmanager.cpp(442): warning C4018: '<': signed/unsigned mismatch
   Generating Code...
+  LINK : C:\Users\Andre\Documents\DeferredShading\DeferredShading\Debug\DeferredShading.exe not found or not built by the last incremental link; performing full link
   DeferredShading.vcxproj -> C:\Users\Andre\Documents\DeferredShading\DeferredShading\Debug\DeferredShading.exe
   DeferredShading.vcxproj -> C:\Users\Andre\Documents\DeferredShading\DeferredShading\Debug\DeferredShading.pdb (Full PDB)

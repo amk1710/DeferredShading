@@ -45,6 +45,8 @@ private:
 
 	unsigned int tex1;
 	unsigned int tex2;
+	unsigned int tex3;
+	bool tex3active;
 
 	int width_bm;
 	int height_bm;
@@ -62,6 +64,7 @@ private:
 
 	float angle;
 
+	float incNLights;
 	int nLights;
 	std::array<float, 3 * 32> lights;
 	std::array<float, 3 * 32> lightsColors;
@@ -73,6 +76,7 @@ private:
 	void GLWindowManager::FBO_2_file();
 	void GLWindowManager::renderQuad();
 	void GLWindowManager::BuildShader(const char* filepath, unsigned int* shaderID, int shader_enum);
+	void GLWindowManager::randomPointInSphere(float *x, float *y, float *z, float radius);
 
 
 	//NEW STUFF
@@ -84,6 +88,10 @@ private:
 	unsigned int rboDepth;
 
 	unsigned int lPass;
+
+	unsigned int dPass; //debug stage
+	bool usingDebug;
+	unsigned int selectTexture;
 
 	unsigned int quadVAO = 0;
 	unsigned int quadVBO;
